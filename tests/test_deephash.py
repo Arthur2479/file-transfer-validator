@@ -57,6 +57,7 @@ def test_different_content_resolves_a_suspicious_file_to_missing(tmp_path: Path)
     result = resolve((verdict,), DeepScope.SUSPICIOUS)
 
     assert result[0].bucket is Bucket.MISSING
+    assert result[0].matched is None
     assert "content" in result[0].reason.lower()
 
 
@@ -83,6 +84,7 @@ def test_scope_all_downgrades_a_present_file_whose_content_differs(tmp_path: Pat
     result = resolve((claimed_present,), DeepScope.ALL)
 
     assert result[0].bucket is Bucket.MISSING
+    assert result[0].matched is None
 
 
 def test_scope_all_keeps_a_genuinely_identical_present_file(tmp_path: Path):

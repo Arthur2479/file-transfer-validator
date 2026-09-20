@@ -108,7 +108,7 @@ def resolve(
                 Verdict(
                     entry=verdict.entry,
                     bucket=Bucket.MISSING,
-                    matched=verdict.matched,
+                    matched=None,
                     reason="content differs from the file of that name on the destination",
                 )
             )
