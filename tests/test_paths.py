@@ -46,3 +46,11 @@ def test_validation_passes_when_there_are_no_roots(tmp_path: Path):
 
 def test_a_root_that_does_not_exist_does_not_break_validation(tmp_path: Path):
     validate_db_path(tmp_path / "index.db", [tmp_path / "gone"])
+
+
+def test_a_sibling_that_shares_a_name_prefix_is_not_rejected(tmp_path: Path):
+    root = tmp_path / "SSD"
+    root.mkdir()
+    sibling = tmp_path / "SSD-backup"
+    sibling.mkdir()
+    validate_db_path(sibling / "index.db", [root])
