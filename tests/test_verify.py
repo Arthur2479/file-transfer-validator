@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from ftv.core.deephash import DeepScope
-from ftv.core.models import Bucket, IndexedFile, Scan
+from ftv.core.models import IndexedFile, Scan
 from ftv.core.verify import (
     DestinationUnavailableError,
     check_destination_available,
