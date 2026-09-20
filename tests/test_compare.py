@@ -102,6 +102,22 @@ def test_disabling_the_mtime_signal_accepts_any_timestamp():
     assert verdicts[0].bucket is Bucket.PRESENT
 
 
+def test_disabling_mtime_is_present_regardless_of_which_candidate_matches():
+    """With the mtime signal off, any name+size candidate should pass.
+
+    Which candidate ends up in ``matched`` isn't a guaranteed contract here
+    (it's whatever the Lookup returns first) -- only the bucket is asserted.
+    """
+    april = ssd_file(mtime=1_600_000_000.0, folder="april")
+    september = ssd_file(mtime=1_700_000_000.0, folder="september")
+    verdicts = compare(
+        [card_file(mtime=1_700_000_000.0)],
+        FakeLookup([april, september]),
+        use_mtime=False,
+    )
+    assert verdicts[0].bucket is Bucket.PRESENT
+
+
 def test_the_right_candidate_is_chosen_from_several_same_name_same_size_files():
     """April's DSC_0001.NEF and September's are both indexed; pick by capture time."""
     april = ssd_file(mtime=1_600_000_000.0, folder="april")
@@ -111,6 +127,22 @@ def test_the_right_candidate_is_chosen_from_several_same_name_same_size_files():
     assert verdicts[0].bucket is Bucket.PRESENT
     assert verdicts[0].matched is not None
     assert "september" in verdicts[0].matched.path
+
+
+def test_the_closest_candidate_is_chosen_when_two_are_both_within_tolerance():
+    """Both candidates qualify (diffs 1.0s and 0.5s); the closer one must win.
+
+    A looser implementation that returns the first qualifying candidate,
+    rather than the closest one, would pass every other test in this file
+    but fail this one.
+    """
+    farther = ssd_file(mtime=500.0, folder="farther")
+    closer = ssd_file(mtime=501.5, folder="closer")
+    verdicts = compare([card_file(mtime=501.0)], FakeLookup([farther, closer]))
+
+    assert verdicts[0].bucket is Bucket.PRESENT
+    assert verdicts[0].matched is not None
+    assert "closer" in verdicts[0].matched.path
 
 
 def test_a_collision_with_no_matching_capture_time_is_suspicious_not_present():
