@@ -60,15 +60,31 @@ def world(tmp_path: Path):
 def test_one_card_lands_every_bucket_correctly(world):
     add = runner.invoke(
         app,
-        ["scan", "add", "Video SSD", str(world["destination"]),
-         "--skip", ".CR3", "--db", str(world["db"])],
+        [
+            "scan",
+            "add",
+            "Video SSD",
+            str(world["destination"]),
+            "--skip",
+            ".CR3",
+            "--db",
+            str(world["db"]),
+        ],
     )
     assert add.exit_code == 0, add.output
 
     result = runner.invoke(
         app,
-        ["verify", "--scan", "Video SSD", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--json"],
+        [
+            "verify",
+            "--scan",
+            "Video SSD",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--json",
+        ],
     )
     payload = json.loads(result.output)
 
@@ -89,13 +105,11 @@ def test_one_card_lands_every_bucket_correctly(world):
 def test_every_card_file_is_accounted_for_exactly_once(world):
     runner.invoke(
         app,
-        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3",
-         "--db", str(world["db"])],
+        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3", "--db", str(world["db"])],
     )
     result = runner.invoke(
         app,
-        ["verify", "--scan", "S", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--json"],
+        ["verify", "--scan", "S", "--path", str(world["card"]), "--db", str(world["db"]), "--json"],
     )
     payload = json.loads(result.output)
 
@@ -106,13 +120,21 @@ def test_every_card_file_is_accounted_for_exactly_once(world):
 def test_deep_resolves_the_collision_to_missing(world):
     runner.invoke(
         app,
-        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3",
-         "--db", str(world["db"])],
+        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3", "--db", str(world["db"])],
     )
     result = runner.invoke(
         app,
-        ["verify", "--scan", "S", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--deep", "--json"],
+        [
+            "verify",
+            "--scan",
+            "S",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--deep",
+            "--json",
+        ],
     )
     payload = json.loads(result.output)
 
@@ -123,8 +145,7 @@ def test_deep_resolves_the_collision_to_missing(world):
 def test_the_human_output_shows_the_folder_structure(world):
     runner.invoke(
         app,
-        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3",
-         "--db", str(world["db"])],
+        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3", "--db", str(world["db"])],
     )
     result = runner.invoke(
         app,
@@ -140,8 +161,7 @@ def test_the_human_output_shows_the_folder_structure(world):
 def test_copying_the_rest_makes_the_card_safe(world):
     runner.invoke(
         app,
-        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3",
-         "--db", str(world["db"])],
+        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3", "--db", str(world["db"])],
     )
 
     for name in ("GONE.MP4", "DSC_0001.NEF"):
@@ -153,8 +173,17 @@ def test_copying_the_rest_makes_the_card_safe(world):
 
     result = runner.invoke(
         app,
-        ["verify", "--scan", "S", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--rescan", "--json"],
+        [
+            "verify",
+            "--scan",
+            "S",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--rescan",
+            "--json",
+        ],
     )
     payload = json.loads(result.output)
 

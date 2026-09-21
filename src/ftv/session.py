@@ -79,9 +79,7 @@ def run_session(
         if not as_json:
             render_card_header(console, scan, volume)
 
-        report = verify_card(
-            volume.path, scan, lookup, deep=deep, skip_override=skip_override
-        )
+        report = verify_card(volume.path, scan, lookup, deep=deep, skip_override=skip_override)
         verified += 1
         if report.safe_to_format:
             safe += 1
@@ -89,9 +87,7 @@ def run_session(
         if as_json:
             console.print_json(json.dumps(report_to_dict(report)))
         else:
-            render_report(
-                console, report, scan, suggest_no_mtime=suggests_disabling_mtime(report)
-            )
+            render_report(console, report, scan, suggest_no_mtime=suggests_disabling_mtime(report))
 
         if not ask_continue():
             break

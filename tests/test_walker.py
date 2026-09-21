@@ -60,9 +60,7 @@ def test_every_file_is_accounted_for_exactly_once(card: Path):
     # this assertion would fail not because of a bug, but because it is
     # counting files the walker was never asked to look at.
     on_disk = sum(
-        1
-        for p in card.rglob("*")
-        if p.is_file() and "MISC" not in p.relative_to(card).parts[:-1]
+        1 for p in card.rglob("*") if p.is_file() and "MISC" not in p.relative_to(card).parts[:-1]
     )
     assert on_disk == outcome.total_files
 

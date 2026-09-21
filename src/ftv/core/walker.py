@@ -35,10 +35,7 @@ class WalkOutcome:
     @property
     def total_files(self) -> int:
         return (
-            len(self.entries)
-            + len(self.skipped_user)
-            + len(self.skipped_junk)
-            + len(self.errors)
+            len(self.entries) + len(self.skipped_user) + len(self.skipped_junk) + len(self.errors)
         )
 
 
@@ -75,9 +72,7 @@ def walk_tree(root: Path, skip_extensions: frozenset[str]) -> WalkOutcome:
             # pattern depends on walker.fsread being a live module reference.
             size, mtime = fsread.stat_file(found.path)
         except OSError as exc:
-            errors.append(
-                WalkError(path=found.path, message=str(exc.strerror or exc))
-            )
+            errors.append(WalkError(path=found.path, message=str(exc.strerror or exc)))
             continue
 
         entries.append(

@@ -79,9 +79,7 @@ def test_wait_gives_up_after_the_configured_number_of_polls():
 def test_wait_polls_the_detector_once_per_cycle():
     """Extra polls desynchronise a scripted fake and a real mount table alike."""
     detector = FakeVolumeDetector([[]])
-    wait_for_new_volume(
-        detector, seen=set(), poll_interval=0, sleeper=lambda _: None, stop_after=3
-    )
+    wait_for_new_volume(detector, seen=set(), poll_interval=0, sleeper=lambda _: None, stop_after=3)
     assert detector.calls == 3
 
 

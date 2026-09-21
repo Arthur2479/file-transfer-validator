@@ -120,9 +120,7 @@ def test_several_cards_run_one_after_another(tmp_path: Path, destination: Path):
     answers = iter([True, True, False])
     con = console()
 
-    result = run(
-        detector, make_scan(destination), lookup, con, ask_continue=lambda: next(answers)
-    )
+    result = run(detector, make_scan(destination), lookup, con, ask_continue=lambda: next(answers))
 
     assert result.cards_verified == 3
     assert result.cards_safe == 3
@@ -137,9 +135,7 @@ def test_a_failing_card_makes_the_whole_session_fail(tmp_path: Path, destination
     answers = iter([True, False])
     con = console()
 
-    result = run(
-        detector, make_scan(destination), lookup, con, ask_continue=lambda: next(answers)
-    )
+    result = run(detector, make_scan(destination), lookup, con, ask_continue=lambda: next(answers))
 
     assert result.cards_verified == 2
     assert result.cards_safe == 1
@@ -261,9 +257,7 @@ def test_the_card_header_is_printed_before_the_verdict(tmp_path: Path, destinati
     assert out.index("NIKON Z8") < out.lower().index("safe to format")
 
 
-def test_json_mode_prints_one_object_per_card_and_no_decoration(
-    tmp_path: Path, destination: Path
-):
+def test_json_mode_prints_one_object_per_card_and_no_decoration(tmp_path: Path, destination: Path):
     import json
 
     card = make_card(tmp_path, "CARD", ["A.JPG"])

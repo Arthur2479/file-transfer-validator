@@ -62,15 +62,31 @@ def test_get_scan_returns_none_for_an_unknown_name(index: Index):
 
 
 def test_saving_a_duplicate_name_is_refused_unless_replacing(index: Index):
-    index.save_scan("S", roots=[Path("/a")], entries=[entry("A.JPG", 10)],
-                    use_mtime=True, skip_extensions=frozenset())
+    index.save_scan(
+        "S",
+        roots=[Path("/a")],
+        entries=[entry("A.JPG", 10)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+    )
 
     with pytest.raises(ScanExistsError, match="S"):
-        index.save_scan("S", roots=[Path("/a")], entries=[entry("B.JPG", 11)],
-                        use_mtime=True, skip_extensions=frozenset())
+        index.save_scan(
+            "S",
+            roots=[Path("/a")],
+            entries=[entry("B.JPG", 11)],
+            use_mtime=True,
+            skip_extensions=frozenset(),
+        )
 
-    replaced = index.save_scan("S", roots=[Path("/a")], entries=[entry("B.JPG", 11)],
-                               use_mtime=True, skip_extensions=frozenset(), replace=True)
+    replaced = index.save_scan(
+        "S",
+        roots=[Path("/a")],
+        entries=[entry("B.JPG", 11)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+        replace=True,
+    )
     assert replaced.file_count == 1
     assert index.lookup_for("S").find("A.JPG", 10) == []
     assert len(index.lookup_for("S").find("B.JPG", 11)) == 1
@@ -78,14 +94,20 @@ def test_saving_a_duplicate_name_is_refused_unless_replacing(index: Index):
 
 def test_list_scans_is_sorted_by_name(index: Index):
     for name in ("Zulu", "Alpha", "Mike"):
-        index.save_scan(name, roots=[Path("/a")], entries=[], use_mtime=True,
-                        skip_extensions=frozenset())
+        index.save_scan(
+            name, roots=[Path("/a")], entries=[], use_mtime=True, skip_extensions=frozenset()
+        )
     assert [s.name for s in index.list_scans()] == ["Alpha", "Mike", "Zulu"]
 
 
 def test_deleting_a_scan_removes_its_files(index: Index):
-    index.save_scan("S", roots=[Path("/a")], entries=[entry("A.JPG", 10)],
-                    use_mtime=True, skip_extensions=frozenset())
+    index.save_scan(
+        "S",
+        roots=[Path("/a")],
+        entries=[entry("A.JPG", 10)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+    )
 
     assert index.delete_scan("S") is True
     assert index.get_scan("S") is None
@@ -110,8 +132,13 @@ def test_lookup_matches_on_name_and_size_ignoring_path(index: Index):
 
 
 def test_lookup_does_not_match_a_different_size(index: Index):
-    index.save_scan("S", roots=[Path("/a")], entries=[entry("A.JPG", 10)],
-                    use_mtime=True, skip_extensions=frozenset())
+    index.save_scan(
+        "S",
+        roots=[Path("/a")],
+        entries=[entry("A.JPG", 10)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+    )
     assert index.lookup_for("S").find("A.JPG", 11) == []
 
 
@@ -133,10 +160,20 @@ def test_lookup_returns_every_candidate_with_the_same_name_and_size(index: Index
 
 
 def test_lookup_is_scoped_to_its_scan(index: Index):
-    index.save_scan("A", roots=[Path("/a")], entries=[entry("X.JPG", 1)],
-                    use_mtime=True, skip_extensions=frozenset())
-    index.save_scan("B", roots=[Path("/b")], entries=[entry("Y.JPG", 2)],
-                    use_mtime=True, skip_extensions=frozenset())
+    index.save_scan(
+        "A",
+        roots=[Path("/a")],
+        entries=[entry("X.JPG", 1)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+    )
+    index.save_scan(
+        "B",
+        roots=[Path("/b")],
+        entries=[entry("Y.JPG", 2)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+    )
 
     assert index.lookup_for("A").find("Y.JPG", 2) == []
     assert index.lookup_for("B").find("Y.JPG", 2) != []
@@ -166,8 +203,13 @@ def test_opening_refuses_a_db_inside_a_scan_root(tmp_path: Path):
 def test_reopening_an_existing_db_preserves_scans(tmp_path: Path):
     db = tmp_path / "index.db"
     first = Index.open(db)
-    first.save_scan("S", roots=[Path("/a")], entries=[entry("A.JPG", 10)],
-                    use_mtime=True, skip_extensions=frozenset())
+    first.save_scan(
+        "S",
+        roots=[Path("/a")],
+        entries=[entry("A.JPG", 10)],
+        use_mtime=True,
+        skip_extensions=frozenset(),
+    )
     first.close()
 
     second = Index.open(db)
@@ -190,8 +232,9 @@ def test_migration_is_idempotent(tmp_path: Path):
 
 def test_a_large_scan_saves_and_looks_up(index: Index):
     entries = [entry(f"IMG_{n:05}.JPG", n) for n in range(5000)]
-    scan = index.save_scan("Big", roots=[Path("/a")], entries=entries,
-                           use_mtime=True, skip_extensions=frozenset())
+    scan = index.save_scan(
+        "Big", roots=[Path("/a")], entries=entries, use_mtime=True, skip_extensions=frozenset()
+    )
     assert scan.file_count == 5000
 
     lookup = index.lookup_for("Big")

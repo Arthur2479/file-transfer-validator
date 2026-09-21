@@ -138,9 +138,7 @@ class Index:
         replace: bool = False,
     ) -> Scan:
         """Store a scan and its files in one transaction."""
-        existing = self._conn.execute(
-            "SELECT id FROM scans WHERE name = ?", (name,)
-        ).fetchone()
+        existing = self._conn.execute("SELECT id FROM scans WHERE name = ?", (name,)).fetchone()
         if existing is not None and not replace:
             raise ScanExistsError(
                 f"a scan named {name!r} already exists; use refresh or pass replace=True"

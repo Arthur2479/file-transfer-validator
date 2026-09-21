@@ -58,9 +58,7 @@ def compare(
             continue
 
         if not use_mtime:
-            verdicts.append(
-                Verdict(entry=entry, bucket=Bucket.PRESENT, matched=candidates[0])
-            )
+            verdicts.append(Verdict(entry=entry, bucket=Bucket.PRESENT, matched=candidates[0]))
             continue
 
         best = _best_by_mtime(entry, candidates, mtime_tolerance)

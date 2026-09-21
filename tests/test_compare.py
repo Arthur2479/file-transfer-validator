@@ -26,8 +26,9 @@ def card_file(name: str = "DSC_0001.NEF", size: int = 14, mtime: float = 1000.0)
     )
 
 
-def ssd_file(name: str = "DSC_0001.NEF", size: int = 14, mtime: float = 1000.0,
-             folder: str = "2026") -> IndexedFile:
+def ssd_file(
+    name: str = "DSC_0001.NEF", size: int = 14, mtime: float = 1000.0, folder: str = "2026"
+) -> IndexedFile:
     return IndexedFile(path=f"/Volumes/SSD/{folder}/{name}", name=name, size=size, mtime=mtime)
 
 
@@ -183,8 +184,12 @@ def test_compare_accepts_a_generator():
 def test_unpreserved_timestamps_are_detected_when_every_match_is_suspicious():
     """The signature of a copy tool that drops timestamps."""
     verdicts = tuple(
-        Verdict(entry=card_file(name=f"IMG_{n}.JPG"), bucket=Bucket.SUSPICIOUS,
-                matched=ssd_file(name=f"IMG_{n}.JPG"), reason="capture time differs")
+        Verdict(
+            entry=card_file(name=f"IMG_{n}.JPG"),
+            bucket=Bucket.SUSPICIOUS,
+            matched=ssd_file(name=f"IMG_{n}.JPG"),
+            reason="capture time differs",
+        )
         for n in range(20)
     )
     assert timestamps_look_unpreserved(verdicts) is True
@@ -194,8 +199,12 @@ def test_unpreserved_timestamps_are_not_claimed_when_some_files_matched_cleanly(
     verdicts = (
         Verdict(entry=card_file(name="A.JPG"), bucket=Bucket.PRESENT, matched=ssd_file()),
         *(
-            Verdict(entry=card_file(name=f"B{n}.JPG"), bucket=Bucket.SUSPICIOUS,
-                    matched=ssd_file(), reason="capture time differs")
+            Verdict(
+                entry=card_file(name=f"B{n}.JPG"),
+                bucket=Bucket.SUSPICIOUS,
+                matched=ssd_file(),
+                reason="capture time differs",
+            )
             for n in range(20)
         ),
     )
@@ -205,8 +214,12 @@ def test_unpreserved_timestamps_are_not_claimed_when_some_files_matched_cleanly(
 def test_unpreserved_timestamps_are_not_claimed_on_a_tiny_sample():
     """Two colliding files are a real collision, not a broken copy tool."""
     verdicts = tuple(
-        Verdict(entry=card_file(name=f"IMG_{n}.JPG"), bucket=Bucket.SUSPICIOUS,
-                matched=ssd_file(), reason="capture time differs")
+        Verdict(
+            entry=card_file(name=f"IMG_{n}.JPG"),
+            bucket=Bucket.SUSPICIOUS,
+            matched=ssd_file(),
+            reason="capture time differs",
+        )
         for n in range(2)
     )
     assert timestamps_look_unpreserved(verdicts) is False
