@@ -36,8 +36,13 @@ def add_scan(workspace, *extra: str):
     return runner.invoke(
         app,
         [
-            "scan", "add", "Video SSD", str(workspace["destination"]),
-            "--db", str(workspace["db"]), *extra,
+            "scan",
+            "add",
+            "Video SSD",
+            str(workspace["destination"]),
+            "--db",
+            str(workspace["db"]),
+            *extra,
         ],
     )
 
@@ -47,9 +52,12 @@ def verify(workspace, *extra: str):
         app,
         [
             "verify",
-            "--scan", "Video SSD",
-            "--path", str(workspace["card"]),
-            "--db", str(workspace["db"]),
+            "--scan",
+            "Video SSD",
+            "--path",
+            str(workspace["card"]),
+            "--db",
+            str(workspace["db"]),
             *extra,
         ],
     )
@@ -107,6 +115,13 @@ def test_json_output_is_machine_readable(workspace):
 
 
 def test_verify_reports_an_unknown_scan_name(workspace):
+    # verify no longer auto-creates the index (fix 2), so the db must already
+    # exist -- with an unrelated scan, so "Video SSD" is still unknown.
+    runner.invoke(
+        app,
+        ["scan", "add", "Other", str(workspace["destination"]), "--db", str(workspace["db"])],
+    )
+
     result = verify(workspace)
     assert result.exit_code != 0
     assert "Video SSD" in result.output
@@ -127,8 +142,15 @@ def test_verify_refuses_a_card_path_that_is_not_a_folder(workspace, tmp_path: Pa
     add_scan(workspace)
     result = runner.invoke(
         app,
-        ["verify", "--scan", "Video SSD", "--path", str(tmp_path / "nope"),
-         "--db", str(workspace["db"])],
+        [
+            "verify",
+            "--scan",
+            "Video SSD",
+            "--path",
+            str(tmp_path / "nope"),
+            "--db",
+            str(workspace["db"]),
+        ],
     )
     assert result.exit_code != 0
     assert "nope" in result.output
@@ -177,3 +199,22 @@ def test_verify_prints_the_scans_age(workspace):
     add_scan(workspace)
     result = verify(workspace)
     assert "just now" in result.output or "ago" in result.output
+
+
+def test_verify_refuses_to_create_a_db_inside_a_destination_like_folder(tmp_path: Path):
+    """--db pointing at a not-yet-existing path inside a destination-like folder
+    must never be auto-created by verify (fix 2)."""
+    destination_like = tmp_path / "destination"
+    destination_like.mkdir()
+    db = destination_like / "nested" / "index.db"
+    card = tmp_path / "card"
+    card.mkdir()
+
+    result = runner.invoke(
+        app,
+        ["verify", "--scan", "Video SSD", "--path", str(card), "--db", str(db)],
+    )
+
+    assert result.exit_code != 0
+    assert not db.exists()
+    assert not db.parent.exists(), "no parent directory should be created either"

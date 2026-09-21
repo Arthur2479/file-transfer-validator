@@ -7,12 +7,14 @@ lives in ftv.core; everything that prints lives in ftv.render.
 from __future__ import annotations
 
 import json
+import sqlite3
 import time
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from ftv.core.deephash import DeepScope
 from ftv.core.filters import normalize_skip_list
@@ -24,7 +26,7 @@ from ftv.core.verify import (
     verify_card,
 )
 from ftv.core.walker import walk_trees
-from ftv.paths import DbPathError, default_db_path
+from ftv.paths import DbPathError, default_db_path, validate_db_path
 from ftv.render import (
     human_bytes,
     render_card_header,
@@ -51,21 +53,54 @@ DbOption = Annotated[
 ]
 
 
+def _resolve_db_path(db: Path | None) -> Path:
+    return (db or default_db_path()).expanduser().resolve()
+
+
+def _require_existing_db(db: Path | None) -> None:
+    """Refuse to proceed if the index database has not been created yet.
+
+    Read/update-oriented commands (``scan list``, ``scan refresh``, ``scan
+    rm``, ``verify``) must never silently create a new, empty index database
+    (and its parent directory) just because ``--db`` pointed somewhere that
+    does not exist yet — only ``scan add`` legitimately creates the index.
+    """
+    resolved = _resolve_db_path(db)
+    if not resolved.is_file():
+        err_console.print(
+            f"[red]no index database found at {escape(str(resolved))}; "
+            "run 'ftv scan add' first[/red]"
+        )
+        raise typer.Exit(code=2)
+
+
 def _open_index(db: Path | None, roots: list[Path]) -> Index:
     try:
         return Index.open(db or default_db_path(), roots=roots)
     except DbPathError as exc:
-        console.print(f"[red]{exc}[/red]")
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        raise typer.Exit(code=2) from exc
+    except (OSError, sqlite3.Error) as exc:
+        err_console.print(f"[red]could not access the index database: {escape(str(exc))}[/red]")
+        raise typer.Exit(code=2) from exc
+
+
+def _guard_index(fn, *args, **kwargs):
+    """Run an Index method call, turning OSError/sqlite3.Error into a clean exit."""
+    try:
+        return fn(*args, **kwargs)
+    except (OSError, sqlite3.Error) as exc:
+        err_console.print(f"[red]could not access the index database: {escape(str(exc))}[/red]")
         raise typer.Exit(code=2) from exc
 
 
 def _require_scan(index: Index, name: str):
-    scan = index.get_scan(name)
+    scan = _guard_index(index.get_scan, name)
     if scan is None:
-        console.print(f"[red]no scan named {name!r}[/red]")
-        available = [s.name for s in index.list_scans()]
+        err_console.print(f"[red]no scan named '{escape(name)}'[/red]")
+        available = [s.name for s in _guard_index(index.list_scans)]
         if available:
-            console.print("Available scans: " + ", ".join(available))
+            err_console.print("Available scans: " + ", ".join(escape(n) for n in available))
         raise typer.Exit(code=2)
     return scan
 
@@ -77,7 +112,7 @@ def _report_walk_problems(outcome) -> None:
             f"{'s' if len(outcome.errors) != 1 else ''} during the scan:[/yellow]"
         )
         for error in outcome.errors[:20]:
-            console.print(f"  {error.path}  [dim]{error.message}[/dim]")
+            console.print(f"  {escape(str(error.path))}  [dim]{escape(error.message)}[/dim]")
         if len(outcome.errors) > 20:
             console.print(f"  [dim]… and {len(outcome.errors) - 20:,} more[/dim]")
         console.print(
@@ -108,7 +143,7 @@ def scan_add(
     roots = [p.expanduser().resolve() for p in paths]
     missing = [str(r) for r in roots if not r.is_dir()]
     if missing:
-        console.print("[red]not a readable folder: " + ", ".join(missing) + "[/red]")
+        err_console.print("[red]not a readable folder: " + escape(", ".join(missing)) + "[/red]")
         raise typer.Exit(code=2)
 
     skips = normalize_skip_list(skip)
@@ -116,17 +151,22 @@ def scan_add(
     try:
         with console.status(f"Scanning {len(roots)} folder(s)…"):
             outcome = walk_trees(roots, skips)
-        scan = index.save_scan(
-            name, roots, outcome.entries, use_mtime=use_mtime, skip_extensions=skips
+        scan = _guard_index(
+            index.save_scan,
+            name,
+            roots,
+            outcome.entries,
+            use_mtime=use_mtime,
+            skip_extensions=skips,
         )
     except ScanExistsError as exc:
-        console.print(f"[red]{exc}[/red]")
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
         raise typer.Exit(code=2) from exc
     finally:
         index.close()
 
     console.print(
-        f"[green]Scanned[/green] [bold]{scan.name}[/bold]: {scan.file_count:,} files "
+        f"[green]Scanned[/green] [bold]{escape(scan.name)}[/bold]: {scan.file_count:,} files "
         f"across {len(roots)} folder(s)"
     )
     if outcome.skipped_user:
@@ -142,9 +182,10 @@ def scan_list(
     as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
     """List the remembered scans."""
+    _require_existing_db(db)
     index = _open_index(db, [])
     try:
-        scans = index.list_scans()
+        scans = _guard_index(index.list_scans)
     finally:
         index.close()
 
@@ -175,18 +216,26 @@ def scan_refresh(
     db: DbOption = None,
 ) -> None:
     """Re-walk a scan's folders, keeping its skip list and mtime setting."""
+    _require_existing_db(db)
     index = _open_index(db, [])
     try:
         scan = _require_scan(index, name)
         try:
             check_destination_available(scan)
         except DestinationUnavailableError as exc:
-            console.print(f"[red]{exc}[/red]")
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
             raise typer.Exit(code=2) from exc
 
-        with console.status(f"Re-scanning {scan.name}…"):
+        try:
+            validate_db_path(_resolve_db_path(db), scan.roots)
+        except DbPathError as exc:
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
+            raise typer.Exit(code=2) from exc
+
+        with console.status(f"Re-scanning {escape(scan.name)}…"):
             outcome = walk_trees(scan.roots, scan.skip_extensions)
-        refreshed = index.save_scan(
+        refreshed = _guard_index(
+            index.save_scan,
             scan.name,
             scan.roots,
             outcome.entries,
@@ -195,13 +244,14 @@ def scan_refresh(
             replace=True,
         )
     except ScanNotFoundError as exc:
-        console.print(f"[red]{exc}[/red]")
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
         raise typer.Exit(code=2) from exc
     finally:
         index.close()
 
     console.print(
-        f"[green]Refreshed[/green] [bold]{refreshed.name}[/bold]: {refreshed.file_count:,} files"
+        f"[green]Refreshed[/green] [bold]{escape(refreshed.name)}[/bold]: "
+        f"{refreshed.file_count:,} files"
     )
     _report_walk_problems(outcome)
 
@@ -212,15 +262,16 @@ def scan_rm(
     db: DbOption = None,
 ) -> None:
     """Forget a scan. Touches nothing on the destination."""
+    _require_existing_db(db)
     index = _open_index(db, [])
     try:
-        if not index.delete_scan(name):
-            console.print(f"[red]no scan named {name!r}[/red]")
+        if not _guard_index(index.delete_scan, name):
+            err_console.print(f"[red]no scan named '{escape(name)}'[/red]")
             raise typer.Exit(code=2)
     finally:
         index.close()
 
-    console.print(f"[green]Deleted[/green] scan [bold]{name}[/bold]")
+    console.print(f"[green]Deleted[/green] scan [bold]{escape(name)}[/bold]")
 
 
 @app.command("verify")
@@ -254,6 +305,7 @@ def verify(
 
     skip_override = normalize_skip_list(skip) if skip else None
 
+    _require_existing_db(db)
     index = _open_index(db, [])
     try:
         scan = _require_scan(index, scan_name)
@@ -261,13 +313,14 @@ def verify(
         try:
             check_destination_available(scan)
         except DestinationUnavailableError as exc:
-            console.print(f"[red]{exc}[/red]")
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
             raise typer.Exit(code=2) from exc
 
         if rescan:
-            with console.status(f"Re-scanning {scan.name}…"):
+            with console.status(f"Re-scanning {escape(scan.name)}…"):
                 outcome = walk_trees(scan.roots, scan.skip_extensions)
-            scan = index.save_scan(
+            scan = _guard_index(
+                index.save_scan,
                 scan.name,
                 scan.roots,
                 outcome.entries,
@@ -276,17 +329,15 @@ def verify(
                 replace=True,
             )
 
-        lookup = index.lookup_for(scan.name)
+        lookup = _guard_index(index.lookup_for, scan.name)
 
         if path is not None:
             card_root = path.expanduser().resolve()
             if not card_root.is_dir():
-                console.print(f"[red]not a readable folder: {card_root}[/red]")
+                err_console.print(f"[red]not a readable folder: {escape(str(card_root))}[/red]")
                 raise typer.Exit(code=2)
 
-            report = verify_card(
-                card_root, scan, lookup, deep=scope, skip_override=skip_override
-            )
+            report = verify_card(card_root, scan, lookup, deep=scope, skip_override=skip_override)
             if as_json:
                 console.print_json(json.dumps(report_to_dict(report)))
             else:
