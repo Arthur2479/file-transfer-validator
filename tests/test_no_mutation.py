@@ -7,6 +7,7 @@ asserts nothing changed.
 """
 
 import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -70,38 +71,91 @@ def world(tmp_path: Path):
 
 def test_a_full_verification_modifies_nothing(world):
     """The heaviest path: scan, refresh, verify, and hash every matched pair."""
-    runner.invoke(
+    result = runner.invoke(
         app,
-        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3",
-         "--db", str(world["db"])],
+        ["scan", "add", "S", str(world["destination"]), "--skip", ".CR3", "--db", str(world["db"])],
     )
+    assert result.exit_code == 0, result.output
 
     card_before = manifest(world["card"])
     destination_before = manifest(world["destination"])
 
-    runner.invoke(app, ["scan", "refresh", "S", "--db", str(world["db"])])
-    runner.invoke(
+    result = runner.invoke(app, ["scan", "refresh", "S", "--db", str(world["db"])])
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(
         app,
-        ["verify", "--scan", "S", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--deep-all"],
+        [
+            "verify",
+            "--scan",
+            "S",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--deep-all",
+        ],
     )
-    runner.invoke(app, ["scan", "list", "--db", str(world["db"])])
+    # The card holds one file (MISSING.MP4) that was never copied to the
+    # destination, so a real, non-trivial verification fails with exit 1 --
+    # proving this ran the actual comparison rather than silently doing
+    # nothing. --json lets us confirm real work happened: a non-zero count of
+    # files were actually checked (present + missing), not just "exited 0".
+    assert result.exit_code == 1, result.output
+
+    json_result = runner.invoke(
+        app,
+        [
+            "verify",
+            "--scan",
+            "S",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--deep-all",
+            "--json",
+        ],
+    )
+    assert json_result.exit_code == 1, json_result.output
+    payload = json.loads(json_result.output)
+    checked = payload["counts"]["present"] + payload["counts"]["missing"]
+    assert checked > 0, "the verify run must have actually compared real files"
+    assert payload["counts"]["missing"] == 1
+    assert payload["counts"]["present"] == 2
+
+    result = runner.invoke(app, ["scan", "list", "--db", str(world["db"])])
+    assert result.exit_code == 0, result.output
 
     assert manifest(world["card"]) == card_before, "the card was modified"
     assert manifest(world["destination"]) == destination_before, "the destination was modified"
 
 
 def test_verification_creates_no_new_paths(world):
-    runner.invoke(app, ["scan", "add", "S", str(world["destination"]), "--db", str(world["db"])])
+    result = runner.invoke(
+        app, ["scan", "add", "S", str(world["destination"]), "--db", str(world["db"])]
+    )
+    assert result.exit_code == 0, result.output
 
     card_paths = set(p for p in world["card"].rglob("*"))
     destination_paths = set(p for p in world["destination"].rglob("*"))
 
-    runner.invoke(
+    result = runner.invoke(
         app,
-        ["verify", "--scan", "S", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--deep-all"],
+        [
+            "verify",
+            "--scan",
+            "S",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--deep-all",
+        ],
     )
+    # MISSING.MP4 is never copied to the destination, so this run genuinely
+    # finds a missing file and exits 1 -- proof it did real work.
+    assert result.exit_code == 1, result.output
 
     assert set(world["card"].rglob("*")) == card_paths
     assert set(world["destination"].rglob("*")) == destination_paths
@@ -109,15 +163,27 @@ def test_verification_creates_no_new_paths(world):
 
 def test_the_index_is_the_only_thing_written(world, tmp_path: Path):
     """Nothing outside the database file appears or changes."""
-    runner.invoke(app, ["scan", "add", "S", str(world["destination"]), "--db", str(world["db"])])
+    result = runner.invoke(
+        app, ["scan", "add", "S", str(world["destination"]), "--db", str(world["db"])]
+    )
+    assert result.exit_code == 0, result.output
     assert world["db"].exists()
 
     before = manifest(world["card"]) | manifest(world["destination"])
-    runner.invoke(
+    result = runner.invoke(
         app,
-        ["verify", "--scan", "S", "--path", str(world["card"]),
-         "--db", str(world["db"]), "--deep-all"],
+        [
+            "verify",
+            "--scan",
+            "S",
+            "--path",
+            str(world["card"]),
+            "--db",
+            str(world["db"]),
+            "--deep-all",
+        ],
     )
+    assert result.exit_code == 1, result.output
     after = manifest(world["card"]) | manifest(world["destination"])
 
     assert after == before
@@ -125,7 +191,10 @@ def test_the_index_is_the_only_thing_written(world, tmp_path: Path):
 
 def test_a_read_only_card_verifies_without_error(world):
     """A card mounted read-only must still verify cleanly."""
-    runner.invoke(app, ["scan", "add", "S", str(world["destination"]), "--db", str(world["db"])])
+    result = runner.invoke(
+        app, ["scan", "add", "S", str(world["destination"]), "--db", str(world["db"])]
+    )
+    assert result.exit_code == 0, result.output
 
     clips = world["card"] / "DCIM" / "100NZ_8"
     original_modes = {p: p.stat().st_mode for p in clips.rglob("*")}
@@ -134,8 +203,17 @@ def test_a_read_only_card_verifies_without_error(world):
     try:
         result = runner.invoke(
             app,
-            ["verify", "--scan", "S", "--path", str(world["card"]),
-             "--db", str(world["db"]), "--deep-all", "--json"],
+            [
+                "verify",
+                "--scan",
+                "S",
+                "--path",
+                str(world["card"]),
+                "--db",
+                str(world["db"]),
+                "--deep-all",
+                "--json",
+            ],
         )
         assert result.exit_code in (0, 1), result.output
         assert '"error": 0' in result.output or '"error":0' in result.output
