@@ -32,6 +32,11 @@ def stat_file(path: Path) -> tuple[int, float]:
     return st.st_size, st.st_mtime
 
 
+def exists_dir(path: Path) -> bool:
+    """True if ``path`` is a directory, False otherwise. Read-only."""
+    return path.is_dir()
+
+
 def read_chunks(path: Path, chunk_size: int = DEFAULT_CHUNK_SIZE) -> Iterator[bytes]:
     """Stream ``path`` in binary chunks.
 
@@ -72,7 +77,8 @@ def walk(
     for dirpath, dirnames, filenames in os.walk(root, onerror=on_error, followlinks=False):
         current = Path(dirpath)
         dirnames[:] = [
-            d for d in dirnames
+            d
+            for d in dirnames
             if not (current / d).is_symlink() and not (prune(d) if prune else False)
         ]
         for filename in filenames:

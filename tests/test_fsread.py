@@ -23,6 +23,18 @@ def test_stat_file_returns_size_and_mtime(tree: Path):
     assert mtime > 0
 
 
+def test_exists_dir_is_true_for_a_real_directory(tree: Path):
+    assert fsread.exists_dir(tree) is True
+
+
+def test_exists_dir_is_false_for_a_nonexistent_path(tmp_path: Path):
+    assert fsread.exists_dir(tmp_path / "nope") is False
+
+
+def test_exists_dir_is_false_for_a_file(tree: Path):
+    assert fsread.exists_dir(tree / "root.txt") is False
+
+
 def test_walk_yields_every_file_with_posix_relpath(tree: Path):
     found = [f for f in fsread.walk(tree) if not isinstance(f, WalkError)]
     assert sorted(f.relpath for f in found) == [
@@ -41,7 +53,8 @@ def test_walk_returns_absolute_paths(tree: Path):
 
 def test_walk_prunes_directories_the_caller_rejects(tree: Path):
     found = [
-        f for f in fsread.walk(tree, prune=lambda name: name == "MISC")
+        f
+        for f in fsread.walk(tree, prune=lambda name: name == "MISC")
         if not isinstance(f, WalkError)
     ]
     assert not any(f.relpath.startswith("MISC/") for f in found)

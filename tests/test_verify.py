@@ -103,9 +103,7 @@ def test_a_skip_listed_extension_is_not_required(card: Path, destination: Path):
 def test_a_per_run_skip_override_replaces_the_scans_skip_list(card: Path, destination: Path):
     indexed = [copy_into(destination, card, "DCIM/100NZ_8/DSC_0001.JPG")]
     scan = make_scan(destination, skips=frozenset({".nef"}))
-    report = verify_card(
-        card, scan, FakeLookup(indexed), skip_override=frozenset({".nef", ".jpg"})
-    )
+    report = verify_card(card, scan, FakeLookup(indexed), skip_override=frozenset({".nef", ".jpg"}))
 
     assert report.safe_to_format is True
     assert len(report.skipped_user) == 3
@@ -210,11 +208,7 @@ def test_a_wall_of_suspicious_matches_suggests_disabling_the_mtime_signal(
         source.write_bytes(bytes([n]) * (100 + n))
         target = destination / f"IMG_{n:04}.JPG"
         target.write_bytes(source.read_bytes())
-        indexed.append(
-            IndexedFile(
-                path=str(target), name=target.name, size=100 + n, mtime=1.0
-            )
-        )
+        indexed.append(IndexedFile(path=str(target), name=target.name, size=100 + n, mtime=1.0))
 
     report = verify_card(card, make_scan(destination), FakeLookup(indexed))
     assert len(report.suspicious) == 15

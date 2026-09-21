@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ftv.core import fsread
 from ftv.core.compare import compare, timestamps_look_unpreserved
 from ftv.core.confirm import confirm
 from ftv.core.deephash import DeepScope, resolve
@@ -27,7 +28,7 @@ def check_destination_available(scan: Scan) -> None:
     turn a perfectly good card into a wall of suspicious files. Refusing is the
     honest answer: the tool cannot verify anything it cannot reach.
     """
-    absent = [str(root) for root in scan.roots if not root.is_dir()]
+    absent = [str(root) for root in scan.roots if not fsread.exists_dir(root)]
     if absent:
         raise DestinationUnavailableError(
             "these destination roots are not available: " + ", ".join(absent)

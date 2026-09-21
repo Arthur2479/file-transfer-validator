@@ -119,8 +119,11 @@ def test_only_fsread_performs_directory_walks():
                 "iterdir",
                 "rglob",
                 "glob",
+                "stat",
+                "is_dir",
+                "is_file",
+                "exists",
+                "lstat",
             }:
                 offenders.append(f"{path.name}:{node.lineno}: .{node.attr}")
-    assert offenders == [], (
-        "directory traversal outside fsread.py: " + "; ".join(offenders)
-    )
+    assert offenders == [], "directory traversal outside fsread.py: " + "; ".join(offenders)
