@@ -10,6 +10,19 @@ from ftv.core.index import Index
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _wide_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Rich's Console falls back to 80 columns whenever it can't read a real
+    # terminal size (always, under CliRunner), and pytest's tmp_path can be
+    # long enough (deeply nested under /private/var/.../pytest-of-.../) that a
+    # full destination path silently truncates at 80 columns in table/text
+    # output. Rich checks the COLUMNS env var before that fallback, so setting
+    # it here keeps assertions on rendered paths deterministic without
+    # changing cli.py's Console construction (which real terminal sessions
+    # rely on auto-sizing correctly).
+    monkeypatch.setenv("COLUMNS", "200")
+
+
 @pytest.fixture
 def db(tmp_path: Path) -> Path:
     return tmp_path / "index.db"

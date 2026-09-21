@@ -27,14 +27,8 @@ app = typer.Typer(
 scan_app = typer.Typer(add_completion=False, help="Manage remembered destination scans.")
 app.add_typer(scan_app, name="scan")
 
-# A fixed, generous width rather than relying on terminal auto-detection: Rich
-# falls back to 80 columns whenever it cannot read a real terminal size (which
-# is always, under the test runner), and at 80 columns a table cell holding a
-# full destination path silently truncates with an ellipsis -- turning a
-# passing scan into a report that looks like it lost track of its own roots.
-CONSOLE_WIDTH = 200
-console = Console(width=CONSOLE_WIDTH)
-err_console = Console(stderr=True, width=CONSOLE_WIDTH)
+console = Console()
+err_console = Console(stderr=True)
 
 DbOption = Annotated[
     Path | None,
