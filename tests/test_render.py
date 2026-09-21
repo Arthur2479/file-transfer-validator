@@ -25,8 +25,9 @@ def text(c: Console) -> str:
 
 
 def entry(name: str, relpath: str, size: int = 10) -> FileEntry:
-    return FileEntry(path=Path("/Volumes/CARD") / relpath, relpath=relpath, name=name,
-                     size=size, mtime=1000.0)
+    return FileEntry(
+        path=Path("/Volumes/CARD") / relpath, relpath=relpath, name=name, size=size, mtime=1000.0
+    )
 
 
 def scan(use_mtime: bool = True) -> Scan:
@@ -99,8 +100,10 @@ def test_a_report_with_missing_files_says_do_not_format():
         scan_name="Video SSD",
         card_root=Path("/Volumes/NIKON Z8"),
         verdicts=(
-            Verdict(entry=entry("DSC_0412.MOV", "DCIM/100NZ_8/DSC_0412.MOV", 2_100_000_000),
-                    bucket=Bucket.MISSING),
+            Verdict(
+                entry=entry("DSC_0412.MOV", "DCIM/100NZ_8/DSC_0412.MOV", 2_100_000_000),
+                bucket=Bucket.MISSING,
+            ),
         ),
     )
     c = console()
@@ -116,12 +119,15 @@ def test_missing_files_are_shown_with_the_folder_structure_leading_to_them():
         scan_name="S",
         card_root=Path("/Volumes/CARD"),
         verdicts=(
-            Verdict(entry=entry("DSC_0412.MOV", "DCIM/100NZ_8/DSC_0412.MOV"),
-                    bucket=Bucket.MISSING),
-            Verdict(entry=entry("DSC_0413.MOV", "DCIM/100NZ_8/DSC_0413.MOV"),
-                    bucket=Bucket.MISSING),
-            Verdict(entry=entry("C0007.MP4", "PRIVATE/M4ROOT/CLIP/C0007.MP4"),
-                    bucket=Bucket.MISSING),
+            Verdict(
+                entry=entry("DSC_0412.MOV", "DCIM/100NZ_8/DSC_0412.MOV"), bucket=Bucket.MISSING
+            ),
+            Verdict(
+                entry=entry("DSC_0413.MOV", "DCIM/100NZ_8/DSC_0413.MOV"), bucket=Bucket.MISSING
+            ),
+            Verdict(
+                entry=entry("C0007.MP4", "PRIVATE/M4ROOT/CLIP/C0007.MP4"), bucket=Bucket.MISSING
+            ),
         ),
     )
     c = console()
@@ -158,8 +164,9 @@ def test_suspicious_files_are_shown_with_their_reason():
             Verdict(
                 entry=entry("DSC_0001.NEF", "DCIM/100NZ_8/DSC_0001.NEF"),
                 bucket=Bucket.SUSPICIOUS,
-                matched=IndexedFile(path="/Volumes/SSD/april/DSC_0001.NEF",
-                                    name="DSC_0001.NEF", size=10, mtime=1.0),
+                matched=IndexedFile(
+                    path="/Volumes/SSD/april/DSC_0001.NEF", name="DSC_0001.NEF", size=10, mtime=1.0
+                ),
                 reason="same name and size but a different capture time",
             ),
         ),
@@ -199,13 +206,63 @@ def test_an_empty_card_is_not_reported_as_all_present():
     assert "all" not in out or "present" not in out
 
 
+def test_a_card_that_is_entirely_skip_listed_is_not_reported_as_all_present():
+    """total_files > 0 (via skipped_user) but checked_count == 0 must still be neutral."""
+    report = VerifyReport(
+        scan_name="S",
+        card_root=Path("/Volumes/CARD"),
+        skipped_user=("DCIM/A.NEF", "DCIM/B.NEF"),
+    )
+    c = console()
+    render_report(c, report, scan())
+    out = text(c)
+
+    assert "no files to verify" in out.lower()
+    assert not ("ALL" in out and "PRESENT" in out)
+    assert report.exit_code == 0
+
+
+def test_a_card_that_is_entirely_junk_is_not_reported_as_all_present():
+    """total_files > 0 (via skipped_junk) but checked_count == 0 must still be neutral."""
+    report = VerifyReport(
+        scan_name="S",
+        card_root=Path("/Volumes/CARD"),
+        skipped_junk=(".DS_Store", "Thumbs.db"),
+    )
+    c = console()
+    render_report(c, report, scan())
+    out = text(c)
+
+    assert "no files to verify" in out.lower()
+    assert not ("ALL" in out and "PRESENT" in out)
+    assert report.exit_code == 0
+
+
+def test_a_card_with_only_errors_still_reports_the_errors_not_the_neutral_message():
+    """checked_count == 0 but errors present must still block, not go neutral."""
+    report = VerifyReport(
+        scan_name="S",
+        card_root=Path("/Volumes/CARD"),
+        errors=(WalkError(path=Path("/Volumes/CARD/bad"), message="permission denied"),),
+    )
+    c = console()
+    render_report(c, report, scan())
+    out = text(c)
+
+    assert "no files to verify" not in out.lower()
+    assert "permission denied" in out
+
+
 def test_the_no_mtime_suggestion_is_shown_when_asked_for():
     report = VerifyReport(
         scan_name="S",
         card_root=Path("/Volumes/CARD"),
         verdicts=tuple(
-            Verdict(entry=entry(f"IMG_{n}.JPG", f"DCIM/IMG_{n}.JPG"), bucket=Bucket.SUSPICIOUS,
-                    reason="same name and size but a different capture time")
+            Verdict(
+                entry=entry(f"IMG_{n}.JPG", f"DCIM/IMG_{n}.JPG"),
+                bucket=Bucket.SUSPICIOUS,
+                reason="same name and size but a different capture time",
+            )
             for n in range(12)
         ),
     )
@@ -215,6 +272,44 @@ def test_the_no_mtime_suggestion_is_shown_when_asked_for():
 
     assert "--no-mtime" in out
     assert "timestamp" in out.lower()
+
+
+def test_a_bracketed_folder_name_is_not_swallowed_as_markup():
+    """Filenames like "[edited]" look like Rich markup tags and must survive escaping."""
+    report = VerifyReport(
+        scan_name="S",
+        card_root=Path("/Volumes/CARD"),
+        verdicts=(
+            Verdict(
+                entry=entry("photo.jpg", "DCIM/[edited]/photo.jpg"),
+                bucket=Bucket.MISSING,
+            ),
+        ),
+    )
+    c = console()
+    render_report(c, report, scan())
+    out = text(c)
+
+    assert "[edited]" in out
+    assert "not" in out.lower() and "format" in out.lower()
+
+
+def test_a_bracketed_folder_name_survives_in_the_missing_tree():
+    report = VerifyReport(
+        scan_name="S",
+        card_root=Path("/Volumes/CARD"),
+        verdicts=(
+            Verdict(
+                entry=entry("photo.jpg", "DCIM/[edited]/photo.jpg"),
+                bucket=Bucket.MISSING,
+            ),
+        ),
+    )
+    c = console()
+    c.print(build_missing_tree(report))
+    out = text(c)
+
+    assert "[edited]" in out
 
 
 def test_the_report_shows_the_scans_age():
@@ -277,8 +372,9 @@ def test_report_to_dict_includes_suspicious_details():
             Verdict(
                 entry=entry("DSC_0001.NEF", "DCIM/DSC_0001.NEF"),
                 bucket=Bucket.SUSPICIOUS,
-                matched=IndexedFile(path="/Volumes/SSD/DSC_0001.NEF", name="DSC_0001.NEF",
-                                    size=10, mtime=1.0),
+                matched=IndexedFile(
+                    path="/Volumes/SSD/DSC_0001.NEF", name="DSC_0001.NEF", size=10, mtime=1.0
+                ),
                 reason="same name and size but a different capture time",
             ),
         ),

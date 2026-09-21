@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.tree import Tree
 
@@ -52,7 +53,7 @@ def human_age(then: datetime, *, now: datetime | None = None) -> str:
 
 def build_missing_tree(report: VerifyReport) -> Tree:
     """Render missing files under the card's own folder structure."""
-    tree = Tree(str(report.card_root))
+    tree = Tree(escape(str(report.card_root)))
     branches: dict[str, Tree] = {}
 
     for verdict in sorted(report.missing, key=lambda v: v.entry.relpath):
@@ -62,9 +63,9 @@ def build_missing_tree(report: VerifyReport) -> Tree:
         for folder in parts[:-1]:
             prefix = f"{prefix}/{folder}"
             if prefix not in branches:
-                branches[prefix] = node.add(f"[bold]{folder}/[/bold]")
+                branches[prefix] = node.add(f"[bold]{escape(folder)}/[/bold]")
             node = branches[prefix]
-        node.add(f"{parts[-1]}  [dim]{human_bytes(verdict.entry.size)}[/dim]")
+        node.add(f"{escape(parts[-1])}  [dim]{human_bytes(verdict.entry.size)}[/dim]")
 
     return tree
 
@@ -74,12 +75,12 @@ def render_card_header(
 ) -> None:
     counted = "" if file_count is None else f" · {file_count:,} files"
     console.print(
-        f"[bold]Scan:[/bold] {scan.name}   "
+        f"[bold]Scan:[/bold] {escape(scan.name)}   "
         f"[dim]scanned {human_age(scan.scanned_at)} · {scan.file_count:,} files[/dim]"
     )
     console.print(
-        f"[bold]Card:[/bold] {volume.name}   "
-        f"[dim]{volume.path} · {human_bytes(volume.total_bytes)}{counted}[/dim]"
+        f"[bold]Card:[/bold] {escape(volume.name)}   "
+        f"[dim]{escape(str(volume.path))} · {human_bytes(volume.total_bytes)}{counted}[/dim]"
     )
 
 
@@ -102,10 +103,10 @@ def render_report(
 ) -> None:
     """Print the verdict for one card."""
     console.print(
-        f"[dim]scan {report.scan_name} · scanned {human_age(scan.scanned_at)}[/dim]"
+        f"[dim]scan {escape(report.scan_name)} · scanned {human_age(scan.scanned_at)}[/dim]"
     )
 
-    if report.total_files == 0:
+    if report.checked_count == 0 and not report.errors:
         console.print("   [yellow]no files to verify on this card[/yellow]")
         console.print(
             "   [dim]an empty card and a card that failed to mount look the same "
@@ -135,9 +136,11 @@ def render_report(
             " — matched by name and size, but not confirmed"
         )
         for verdict in sorted(report.suspicious, key=lambda v: v.entry.relpath):
-            console.print(f"     {verdict.entry.relpath}  [dim]{verdict.reason}[/dim]")
+            console.print(
+                f"     {escape(verdict.entry.relpath)}  [dim]{escape(verdict.reason)}[/dim]"
+            )
             if verdict.matched is not None:
-                console.print(f"       [dim]destination: {verdict.matched.path}[/dim]")
+                console.print(f"       [dim]destination: {escape(str(verdict.matched.path))}[/dim]")
         console.print("   [dim]run again with --deep to settle these by content[/dim]")
 
     if report.errors:
@@ -146,7 +149,7 @@ def render_report(
             " — these could not be checked"
         )
         for error in report.errors:
-            console.print(f"     {error.path}  [dim]{error.message}[/dim]")
+            console.print(f"     {escape(str(error.path))}  [dim]{escape(error.message)}[/dim]")
 
     _render_skipped(console, report)
 
@@ -173,12 +176,12 @@ def render_scan_list(console: Console, scans: Sequence[Scan]) -> None:
 
     for scan in scans:
         table.add_row(
-            scan.name,
+            escape(scan.name),
             f"{scan.file_count:,}",
             human_age(scan.scanned_at),
             "on" if scan.use_mtime else "off",
-            ", ".join(sorted(scan.skip_extensions)) or "—",
-            "\n".join(str(root) for root in scan.roots),
+            escape(", ".join(sorted(scan.skip_extensions))) or "—",
+            escape("\n".join(str(root) for root in scan.roots)),
         )
     console.print(table)
 
