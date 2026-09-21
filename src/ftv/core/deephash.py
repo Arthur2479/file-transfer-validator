@@ -29,18 +29,6 @@ class DeepScope(Enum):
     SUSPICIOUS = "suspicious"
     ALL = "all"
 
-    @classmethod
-    def from_flag(cls, value: str | None) -> DeepScope:
-        """Parse the CLI spellings: absent, bare ``--deep``, or ``--deep=all``."""
-        if value is None:
-            return cls.NONE
-        normalised = value.strip().lower()
-        if normalised in ("", "suspicious"):
-            return cls.SUSPICIOUS
-        if normalised == "all":
-            return cls.ALL
-        raise ValueError(f"unknown --deep value {value!r}; use 'suspicious' or 'all'")
-
 
 def hash_file(path: Path, *, chunk_size: int = DEFAULT_CHUNK_SIZE) -> str:
     """Streamed blake2b digest of ``path``."""

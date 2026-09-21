@@ -24,10 +24,6 @@ class Bucket(str, Enum):
     ERROR = "error"
 
 
-#: Buckets that block a "safe to format" verdict.
-UNRESOLVED = (Bucket.MISSING, Bucket.SUSPICIOUS, Bucket.ERROR)
-
-
 @dataclass(frozen=True, slots=True)
 class FileEntry:
     """A file found on a card or in a destination root."""
@@ -118,10 +114,7 @@ class VerifyReport:
     @property
     def total_files(self) -> int:
         return (
-            len(self.verdicts)
-            + len(self.skipped_user)
-            + len(self.skipped_junk)
-            + len(self.errors)
+            len(self.verdicts) + len(self.skipped_user) + len(self.skipped_junk) + len(self.errors)
         )
 
     def counts(self) -> dict[Bucket, int]:

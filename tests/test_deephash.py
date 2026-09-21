@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from ftv.core.deephash import DeepScope, hash_file, resolve
 from ftv.core.models import Bucket, FileEntry, IndexedFile, Verdict
 
@@ -35,8 +33,11 @@ def pair(tmp_path: Path, name: str, card_bytes: bytes, ssd_bytes: bytes) -> Verd
     ssd_path.write_bytes(ssd_bytes)
     return Verdict(
         entry=FileEntry(
-            path=card_path, relpath=f"DCIM/{name}", name=name,
-            size=len(card_bytes), mtime=1000.0,
+            path=card_path,
+            relpath=f"DCIM/{name}",
+            name=name,
+            size=len(card_bytes),
+            mtime=1000.0,
         ),
         bucket=Bucket.SUSPICIOUS,
         matched=IndexedFile(path=str(ssd_path), name=name, size=len(ssd_bytes), mtime=2000.0),
@@ -68,9 +69,7 @@ def test_scope_none_changes_nothing(tmp_path: Path):
 
 def test_scope_suspicious_leaves_present_files_alone(tmp_path: Path):
     verdict = pair(tmp_path, "A.JPG", b"aaaa", b"bbbb")
-    already_present = Verdict(
-        entry=verdict.entry, bucket=Bucket.PRESENT, matched=verdict.matched
-    )
+    already_present = Verdict(entry=verdict.entry, bucket=Bucket.PRESENT, matched=verdict.matched)
     result = resolve((already_present,), DeepScope.SUSPICIOUS)
     assert result[0].bucket is Bucket.PRESENT
 
@@ -78,9 +77,7 @@ def test_scope_suspicious_leaves_present_files_alone(tmp_path: Path):
 def test_scope_all_downgrades_a_present_file_whose_content_differs(tmp_path: Path):
     """The exact-size collision that name+size cannot see."""
     verdict = pair(tmp_path, "A.JPG", b"aaaa", b"bbbb")
-    claimed_present = Verdict(
-        entry=verdict.entry, bucket=Bucket.PRESENT, matched=verdict.matched
-    )
+    claimed_present = Verdict(entry=verdict.entry, bucket=Bucket.PRESENT, matched=verdict.matched)
     result = resolve((claimed_present,), DeepScope.ALL)
 
     assert result[0].bucket is Bucket.MISSING
@@ -89,9 +86,7 @@ def test_scope_all_downgrades_a_present_file_whose_content_differs(tmp_path: Pat
 
 def test_scope_all_keeps_a_genuinely_identical_present_file(tmp_path: Path):
     verdict = pair(tmp_path, "A.JPG", b"same", b"same")
-    claimed_present = Verdict(
-        entry=verdict.entry, bucket=Bucket.PRESENT, matched=verdict.matched
-    )
+    claimed_present = Verdict(entry=verdict.entry, bucket=Bucket.PRESENT, matched=verdict.matched)
     assert resolve((claimed_present,), DeepScope.ALL)[0].bucket is Bucket.PRESENT
 
 
@@ -103,8 +98,9 @@ def test_missing_files_are_never_hashed(tmp_path: Path):
         return "x"
 
     missing = Verdict(
-        entry=FileEntry(path=tmp_path / "gone.JPG", relpath="gone.JPG", name="gone.JPG",
-                        size=1, mtime=1.0),
+        entry=FileEntry(
+            path=tmp_path / "gone.JPG", relpath="gone.JPG", name="gone.JPG", size=1, mtime=1.0
+        ),
         bucket=Bucket.MISSING,
     )
     result = resolve((missing,), DeepScope.ALL, hasher=hasher)
@@ -122,13 +118,3 @@ def test_an_unreadable_file_stays_suspicious_rather_than_passing(tmp_path: Path)
     result = resolve((verdict,), DeepScope.SUSPICIOUS, hasher=hasher)
     assert result[0].bucket is Bucket.SUSPICIOUS
     assert "could not" in result[0].reason.lower() or "denied" in result[0].reason.lower()
-
-
-def test_deep_scope_parses_the_cli_spellings():
-    assert DeepScope.from_flag(None) is DeepScope.NONE
-    assert DeepScope.from_flag("") is DeepScope.SUSPICIOUS
-    assert DeepScope.from_flag("suspicious") is DeepScope.SUSPICIOUS
-    assert DeepScope.from_flag("all") is DeepScope.ALL
-    assert DeepScope.from_flag("ALL") is DeepScope.ALL
-    with pytest.raises(ValueError, match="deep"):
-        DeepScope.from_flag("sometimes")
