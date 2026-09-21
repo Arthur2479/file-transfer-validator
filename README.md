@@ -42,13 +42,22 @@ nothing was unreadable.
 | `--deep-all` | Content-hash every match; minutes per card |
 | `--rescan` | Refresh the scan before verifying |
 | `--skip .NEF` | Override the scan's skip list for this run |
+| `--no-mtime` | Ignore modification time as a confidence signal |
 | `--json` | Machine-readable report |
 | `--yes` | Do not ask before verifying a detected volume |
+| `--db PATH` | Use an index database at this location instead of the default |
 
 Re-scan after copying new files to the destination:
 
 ```bash
 ftv scan refresh "Video SSD"
+```
+
+Forget a scan (this only removes it from the index; nothing on the
+destination is touched):
+
+```bash
+ftv scan rm "Video SSD"
 ```
 
 ## How it decides
@@ -66,6 +75,27 @@ timestamps, scan with `--no-mtime`.
 Every file on the card is accounted for, minus built-in camera and OS junk and
 minus your skip list. Both are counted in the verdict, so an exclusion is never
 invisible.
+
+Matching is case-sensitive (SQLite's default collation). On a case-insensitive
+filesystem such as macOS APFS, `DSC_0001.JPG` and `DSC_0001.jpg` are the same
+file on disk but different keys in the index; this only ever causes an
+over-report of "missing," never a false "present," so it is a conservative,
+safe-direction limitation rather than a correctness risk.
+
+## The index database
+
+The index database (the only thing this tool writes) lives under your user
+data directory by default. Pass `--db PATH` on any command to use a different
+location instead; it is validated against removable-volume mount points and,
+where the destination roots are known at that point, against the destination
+itself, so it can never land on a card or inside a destination.
+
+`ftv scan list`, `ftv scan refresh`, `ftv scan rm`, and `ftv verify` never
+create a database that does not already exist — only `ftv scan add` does, the
+first time you remember a destination. If `--db` points somewhere with no
+index yet, those four commands refuse with a clear error rather than silently
+creating one (which could otherwise write a stray empty database into a
+destination folder that merely happens not to exist yet at that path).
 
 ## Read-only
 
