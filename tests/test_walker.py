@@ -99,3 +99,55 @@ def test_junk_directories_are_pruned_rather_than_walked(card: Path):
     outcome = walk_tree(card, NO_SKIPS)
     assert not any(e.relpath.startswith("MISC/") for e in outcome.entries)
     assert "MISC" in " ".join(outcome.skipped_junk) or outcome.skipped_junk
+
+
+def test_walk_trees_merges_several_roots(tmp_path: Path):
+    from ftv.core.walker import walk_trees
+
+    first = tmp_path / "video"
+    second = tmp_path / "photo"
+    first.mkdir()
+    second.mkdir()
+    (first / "A.MP4").write_bytes(b"a" * 5)
+    (second / "B.JPG").write_bytes(b"b" * 6)
+
+    outcome = walk_trees([first, second], NO_SKIPS)
+
+    assert sorted(e.name for e in outcome.entries) == ["A.MP4", "B.JPG"]
+    assert outcome.errors == ()
+
+
+def test_walk_trees_keeps_absolute_paths_so_roots_cannot_collide(tmp_path: Path):
+    from ftv.core.walker import walk_trees
+
+    first = tmp_path / "one"
+    second = tmp_path / "two"
+    first.mkdir()
+    second.mkdir()
+    (first / "IMG.JPG").write_bytes(b"a" * 5)
+    (second / "IMG.JPG").write_bytes(b"b" * 5)
+
+    outcome = walk_trees([first, second], NO_SKIPS)
+
+    assert len(outcome.entries) == 2
+    assert len({e.path for e in outcome.entries}) == 2
+
+
+def test_walk_trees_collects_errors_from_every_root(tmp_path: Path):
+    from ftv.core.walker import walk_trees
+
+    good = tmp_path / "good"
+    good.mkdir()
+    (good / "A.JPG").write_bytes(b"a")
+
+    outcome = walk_trees([good, tmp_path / "absent-one", tmp_path / "absent-two"], NO_SKIPS)
+
+    assert len(outcome.entries) == 1
+    assert len(outcome.errors) == 2
+
+
+def test_walk_trees_with_no_roots_is_empty(tmp_path: Path):
+    from ftv.core.walker import walk_trees
+
+    outcome = walk_trees([], NO_SKIPS)
+    assert outcome.total_files == 0

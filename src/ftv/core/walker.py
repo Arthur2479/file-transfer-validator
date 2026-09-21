@@ -7,6 +7,7 @@ sides apply an identical notion of which files count.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -88,6 +89,32 @@ def walk_tree(root: Path, skip_extensions: frozenset[str]) -> WalkOutcome:
                 mtime=mtime,
             )
         )
+
+    return WalkOutcome(
+        entries=tuple(entries),
+        skipped_user=tuple(skipped_user),
+        skipped_junk=tuple(skipped_junk),
+        errors=tuple(errors),
+    )
+
+
+def walk_trees(roots: Iterable[Path], skip_extensions: frozenset[str]) -> WalkOutcome:
+    """Walk several roots and merge the outcomes.
+
+    A scan may cover more than one folder, and entries keep their absolute
+    paths so identically-named files in different roots stay distinct.
+    """
+    entries: list[FileEntry] = []
+    skipped_user: list[str] = []
+    skipped_junk: list[str] = []
+    errors: list[WalkError] = []
+
+    for root in roots:
+        outcome = walk_tree(Path(root), skip_extensions)
+        entries.extend(outcome.entries)
+        skipped_user.extend(outcome.skipped_user)
+        skipped_junk.extend(outcome.skipped_junk)
+        errors.extend(outcome.errors)
 
     return WalkOutcome(
         entries=tuple(entries),
